@@ -185,3 +185,194 @@ public class CreatePollRequestValidator : AbstractValidator<CreatePollRequest>
 ```
 
 These implementations provide a clean, maintainable way to implement complex validation rules while keeping the code organized and reusable.
+
+
+# Organizing Service Registration in .NET Core APIs
+
+## Table of Contents
+- [Introduction](#introduction)
+- [Code Organization](#code-organization)
+- [Implementation Details](#implementation-details)
+- [Best Practices](#best-practices)
+
+## Introduction
+
+As applications grow, service registration in Program.cs can become unwieldy. A better approach is to organize these registrations into dedicated extension methods.
+
+```mermaid
+graph TD
+    A[Program.cs] --> B[DependencyInjection.cs]
+    B --> C[AddSwaggerServices]
+    B --> D[AddMapsterConf]
+    B --> E[AddFluentValidationConf]
+    B --> F[AddServiceDependencies]
+```
+
+## Code Organization
+
+### Project Structure
+```
+YourApi/
+├── DependencyInjection.cs
+├── Program.cs
+└── Extensions/
+    ├── SwaggerExtensions.cs
+    ├── MapsterExtensions.cs
+    └── ValidationExtensions.cs
+```
+
+## Implementation Details
+
+### DependencyInjection Class
+```csharp
+public static class DependencyInjection
+{
+    public static IServiceCollection AddDependencies(
+        this IServiceCollection services)
+    {
+        services.AddControllers();
+        
+        services
+            .AddSwaggerServices()
+            .AddMapsterConf()
+            .AddFluentValidationConf();
+            
+        services.AddScoped<IPollService, PollService>();
+        
+        return services;
+    }
+
+    private static IServiceCollection AddSwaggerServices(
+        this IServiceCollection services)
+    {
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen();
+        
+        return services;
+    }
+
+    private static IServiceCollection AddMapsterConf(
+        this IServiceCollection services)
+    {
+        var mappingConfig = TypeAdapterConfig.GlobalSettings;
+        mappingConfig.Scan(Assembly.GetExecutingAssembly());
+        
+        services.AddSingleton<IMapper>(
+            new Mapper(mappingConfig));
+            
+        return services;
+    }
+
+    private static IServiceCollection AddFluentValidationConf(
+        this IServiceCollection services)
+    {
+        services
+            .AddFluentValidationAutoValidation()
+            .AddValidatorsFromAssembly(
+                Assembly.GetExecutingAssembly());
+                
+        return services;
+    }
+}
+```
+
+### Clean Program.cs
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// All service registrations in one clean line
+builder.Services.AddDependencies();
+
+var app = builder.Build();
+
+// ... rest of configuration
+```
+
+## Best Practices
+
+1. **Modular Organization**
+```csharp
+public static class DependencyInjection
+{
+    public static IServiceCollection AddDependencies(
+        this IServiceCollection services)
+    {
+        return services
+            .AddApiServices()
+            .AddExternalServices()
+            .AddValidationServices()
+            .AddInfrastructureServices();
+    }
+
+    private static IServiceCollection AddApiServices(
+        this IServiceCollection services)
+    {
+        services.AddControllers();
+        services.AddEndpointsApiExplorer();
+        return services;
+    }
+
+    private static IServiceCollection AddExternalServices(
+        this IServiceCollection services)
+    {
+        services.AddSwaggerServices();
+        services.AddMapsterConf();
+        return services;
+    }
+
+    // ... other service groups
+}
+```
+
+2. **Service Lifetime Management**
+```csharp
+private static IServiceCollection AddInfrastructureServices(
+    this IServiceCollection services)
+{
+    // Singleton services
+    services.AddSingleton<IMapper>();
+    
+    // Scoped services
+    services.AddScoped<IPollService, PollService>();
+    
+    // Transient services
+    services.AddTransient<IValidator>();
+    
+    return services;
+}
+```
+
+
+
+## Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| Maintainability | Each service registration is in a logical location |
+| Readability | Clear organization makes code easier to understand |
+| Testability | Services can be registered independently for testing |
+| Scalability | Easy to add new services without cluttering Program.cs |
+
+## Extension Method Chain Pattern
+```csharp
+public static IServiceCollection AddServices(
+    this IServiceCollection services)
+{
+    return services
+        .AddAuthentication()
+        .AddAuthorization()
+        .AddSwagger()
+        .AddMapster()
+        .AddValidation()
+        .AddBusinessServices();
+}
+```
+
+This organization pattern provides:
+- Clear separation of concerns
+- Easy maintenance
+- Better readability
+- Simple extensibility
+- Improved testability
+
+The code remains clean and organized as the application grows, making it easier to maintain and understand the service registration process.
